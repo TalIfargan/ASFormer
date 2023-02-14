@@ -3,7 +3,7 @@ import torch
 from model import *
 from batch_gen import BatchGenerator
 from eval import func_eval
-
+from utils import get_train_val_lists
 import os
 import argparse
 import numpy as np
@@ -18,7 +18,7 @@ torch.cuda.manual_seed_all(seed)
 torch.backends.cudnn.deterministic = True
  
 parser = argparse.ArgumentParser()
-parser.add_argument('--action', default='train')
+parser.add_argument('--action', default='predict')
 parser.add_argument('--dataset', default="50salads")
 parser.add_argument('--split', default='1')
 parser.add_argument('--model_dir', default='models')
@@ -31,7 +31,7 @@ num_epochs = 120
 lr = 0.0005
 num_layers = 10
 num_f_maps = 64
-features_dim = 2048
+features_dim = 1280
 bz = 1
 
 channel_mask_rate = 0.3
@@ -41,27 +41,26 @@ channel_mask_rate = 0.3
 sample_rate = 1
 # sample input features @ 15fps instead of 30 fps
 # for 50salads, and up-sample the output to 30 fps
-if args.dataset == "50salads":
-    sample_rate = 2
+# if args.dataset == "50salads":
+#     sample_rate = 2
+#
+# # To prevent over-fitting for GTEA. Early stopping & large dropout rate
+# if args.dataset == "gtea":
+#     channel_mask_rate = 0.5
+#
+# if args.dataset == 'breakfast':
+#     lr = 0.0001
 
-# To prevent over-fitting for GTEA. Early stopping & large dropout rate
-if args.dataset == "gtea":
-    channel_mask_rate = 0.5
-    
-if args.dataset == 'breakfast':
-    lr = 0.0001
 
-
-vid_list_file = "./data/"+args.dataset+"/splits/train.split"+args.split+".bundle"
-vid_list_file_tst = "./data/"+args.dataset+"/splits/test.split"+args.split+".bundle"
-features_path = "./data/"+args.dataset+"/features/"
-gt_path = "./data/"+args.dataset+"/groundTruth/"
+train_list, val_list, test_list = get_train_val_lists(args.split, os.path.join('datashare', 'APAS', 'folds'))
+features_path = os.path.join('datashare', 'APAS', 'features')
+gt_path = os.path.join('datashare', 'APAS', 'transcriptions_gestures')
  
-mapping_file = "./data/"+args.dataset+"/mapping.txt"
+mapping_file = os.path.join('datashare', 'APAS', 'mapping_gestures.txt')
  
-model_dir = "./{}/".format(args.model_dir)+args.dataset+"/split_"+args.split
+model_dir = os.path.join('models', f'split_{args.split}')
 
-results_dir = "./{}/".format(args.result_dir)+args.dataset+"/split_"+args.split
+results_dir = os.path.join('results', f'split_{args.split}')
  
 if not os.path.exists(model_dir):
     os.makedirs(model_dir)
@@ -84,15 +83,18 @@ num_classes = len(actions_dict)
 trainer = Trainer(num_layers, 2, 2, num_f_maps, features_dim, num_classes, channel_mask_rate)
 if args.action == "train":
     batch_gen = BatchGenerator(num_classes, actions_dict, gt_path, features_path, sample_rate)
-    batch_gen.read_data(vid_list_file)
+    batch_gen.read_data(train_list)
 
-    batch_gen_tst = BatchGenerator(num_classes, actions_dict, gt_path, features_path, sample_rate)
-    batch_gen_tst.read_data(vid_list_file_tst)
+    batch_gen_val = BatchGenerator(num_classes, actions_dict, gt_path, features_path, sample_rate)
+    batch_gen_val.read_data(val_list)
 
-    trainer.train(model_dir, batch_gen, num_epochs, bz, lr, batch_gen_tst)
+    batch_gen_test = BatchGenerator(num_classes, actions_dict, gt_path, features_path, sample_rate)
+    batch_gen_test.read_data(test_list)
+
+    trainer.train(model_dir, batch_gen, num_epochs, bz, lr, batch_gen_val)
 
 if args.action == "predict":
-    batch_gen_tst = BatchGenerator(num_classes, actions_dict, gt_path, features_path, sample_rate)
-    batch_gen_tst.read_data(vid_list_file_tst)
-    trainer.predict(model_dir, results_dir, features_path, batch_gen_tst, num_epochs, actions_dict, sample_rate)
+    batch_gen_test = BatchGenerator(num_classes, actions_dict, gt_path, features_path, sample_rate)
+    batch_gen_test.read_data(test_list)
+    trainer.predict(model_dir, results_dir, features_path, batch_gen_test, num_epochs, actions_dict, sample_rate)
 

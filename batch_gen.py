@@ -6,6 +6,7 @@ import torch
 import numpy as np
 import random
 from grid_sampler import GridSampler, TimeWarpLayer
+import os
 
 class BatchGenerator(object):
     def __init__(self, num_classes, actions_dict, gt_path, features_path, sample_rate):
@@ -27,13 +28,13 @@ class BatchGenerator(object):
             return True
         return False
 
-    def read_data(self, vid_list_file):
-        file_ptr = open(vid_list_file, 'r')
-        self.list_of_examples = file_ptr.read().split('\n')[:-1]
-        file_ptr.close()
-
-        self.gts = [self.gt_path + vid for vid in self.list_of_examples]
-        self.features = [self.features_path + vid.split('.')[0] + '.npy' for vid in self.list_of_examples]
+    def read_data(self, vid_list):
+        # file_ptr = open(vid_list_file, 'r')
+        # self.list_of_examples = file_ptr.read().split('\n')[:-1]
+        # file_ptr.close()
+        self.list_of_examples = vid_list
+        self.gts = [os.path.join(self.gt_path, vid[:vid.index('.csv')]+'.txt') for vid in self.list_of_examples]
+        self.features = [os.path.join(self.features_path,  vid.split('.')[0] + '.npy') for vid in self.list_of_examples]
         self.my_shuffle()
 
     def my_shuffle(self):
@@ -83,7 +84,7 @@ class BatchGenerator(object):
         print('Merge! Dataset length:{}'.format(len(self.list_of_examples)))
 
 
-    def next_batch(self, batch_size, if_warp=False): # if_warp=True is a strong data augmentation. See grid_sampler.py for details.
+    def next_batch(self, batch_size, if_warp=False): # if_warp=True is a strong datashare augmentation. See grid_sampler.py for details.
         batch = self.list_of_examples[self.index:self.index + batch_size]
         batch_gts = self.gts[self.index:self.index + batch_size]
         batch_features = self.features[self.index:self.index + batch_size]
@@ -95,7 +96,11 @@ class BatchGenerator(object):
         for idx, vid in enumerate(batch):
             features = np.load(batch_features[idx])
             file_ptr = open(batch_gts[idx], 'r')
-            content = file_ptr.read().split('\n')[:-1]
+            gt_file_content = file_ptr.read().split('\n')[:-1]
+            content = []
+            for item in gt_file_content:
+                splitted_item = item.split()
+                content += [splitted_item[2]]*(int(splitted_item[1]) - int(splitted_item[0]) + 1)
             classes = np.zeros(min(np.shape(features)[1], len(content)))
             for i in range(len(classes)):
                 classes[i] = self.actions_dict[content[i]]

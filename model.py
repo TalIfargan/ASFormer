@@ -69,7 +69,8 @@ class AttLayer(nn.Module):
         '''
         window_mask = torch.zeros((1, self.bl, self.bl + 2* (self.bl //2)))
         for i in range(self.bl):
-            window_mask[:, :, i:i+self.bl] = 1
+            # window_mask[:, :, i:i+self.bl] = 1
+            window_mask[:, i, i:i + self.bl] = 1
         return window_mask.to(device)
     
     def forward(self, x1, x2, mask):
@@ -400,7 +401,6 @@ class Trainer:
 
             batch_gen_tst.reset()
             import time
-            
             time_start = time.time()
             while batch_gen_tst.has_next():
                 batch_input, batch_target, mask, vids = batch_gen_tst.next_batch(1)
