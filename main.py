@@ -18,7 +18,7 @@ torch.cuda.manual_seed_all(seed)
 torch.backends.cudnn.deterministic = True
  
 parser = argparse.ArgumentParser()
-parser.add_argument('--action', default='predict')
+parser.add_argument('--action', default='train')
 parser.add_argument('--dataset', default="50salads")
 parser.add_argument('--split', default='1')
 parser.add_argument('--model_dir', default='models')
@@ -26,7 +26,7 @@ parser.add_argument('--result_dir', default='results')
 
 args = parser.parse_args()
  
-num_epochs = 120
+num_epochs = 20
 
 lr = 0.0005
 num_layers = 10
@@ -52,11 +52,11 @@ sample_rate = 1
 #     lr = 0.0001
 
 
-train_list, val_list, test_list = get_train_val_lists(args.split, os.path.join('datashare', 'APAS', 'folds'))
-features_path = os.path.join('datashare', 'APAS', 'features')
-gt_path = os.path.join('datashare', 'APAS', 'transcriptions_gestures')
+train_list, val_list, test_list = get_train_val_lists(args.split, os.path.join('data', 'folds'))
+features_path = os.path.join('data', 'features')
+gt_path = os.path.join('data', 'transcriptions_gestures')
  
-mapping_file = os.path.join('datashare', 'APAS', 'mapping_gestures.txt')
+mapping_file = os.path.join('data', 'mapping_gestures.txt')
  
 model_dir = os.path.join('models', f'split_{args.split}')
 
@@ -88,13 +88,10 @@ if args.action == "train":
     batch_gen_val = BatchGenerator(num_classes, actions_dict, gt_path, features_path, sample_rate)
     batch_gen_val.read_data(val_list)
 
-    batch_gen_test = BatchGenerator(num_classes, actions_dict, gt_path, features_path, sample_rate)
-    batch_gen_test.read_data(test_list)
-
     trainer.train(model_dir, batch_gen, num_epochs, bz, lr, batch_gen_val)
 
 if args.action == "predict":
     batch_gen_test = BatchGenerator(num_classes, actions_dict, gt_path, features_path, sample_rate)
     batch_gen_test.read_data(test_list)
-    trainer.predict(model_dir, results_dir, features_path, batch_gen_test, num_epochs, actions_dict, sample_rate)
+    trainer.predict(model_dir, results_dir, features_path, batch_gen_test, actions_dict, sample_rate)
 

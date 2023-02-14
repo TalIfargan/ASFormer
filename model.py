@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
-
+import os
 import copy
 import numpy as np
 import math
@@ -336,12 +336,15 @@ class Trainer:
         
         
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
+        best_acc = 0
         for epoch in range(num_epochs):
             epoch_loss = 0
             correct = 0
             total = 0
+            example_index = 0
 
             while batch_gen.has_next():
+                example_index += 1
                 batch_input, batch_target, mask, vids = batch_gen.next_batch(batch_size, False)
                 batch_input, batch_target, mask = batch_input.to(device), batch_target.to(device), mask.to(device)
                 optimizer.zero_grad()
@@ -361,6 +364,8 @@ class Trainer:
                 _, predicted = torch.max(ps.data[-1], 1)
                 correct += ((predicted == batch_target).float() * mask[:, 0, :].squeeze(1)).sum().item()
                 total += torch.sum(mask[:, 0, :]).item()
+                print(f"finished example No. {example_index} of epoch {epoch+1}")
+                
             
             
             scheduler.step(epoch_loss)
@@ -368,10 +373,12 @@ class Trainer:
             print("[epoch %d]: epoch loss = %f,   acc = %f" % (epoch + 1, epoch_loss / len(batch_gen.list_of_examples),
                                                                float(correct) / total))
 
-            if (epoch + 1) % 10 == 0 and batch_gen_tst is not None:
-                self.test(batch_gen_tst, epoch)
-                torch.save(self.model.state_dict(), save_dir + "/epoch-" + str(epoch + 1) + ".model")
-                torch.save(optimizer.state_dict(), save_dir + "/epoch-" + str(epoch + 1) + ".opt")
+            if (epoch + 1) % 5 == 0 and batch_gen_tst is not None:
+                val_acc = self.test(batch_gen_tst, epoch)
+                if val_acc > best_acc:
+                    best_acc = val_acc
+                    torch.save(self.model.state_dict(), save_dir + "/model.pkl")
+                    torch.save(optimizer.state_dict(), save_dir + "/optimizer.pkl")
 
     def test(self, batch_gen_tst, epoch):
         self.model.eval()
@@ -392,27 +399,34 @@ class Trainer:
 
         self.model.train()
         batch_gen_tst.reset()
+        return acc
 
-    def predict(self, model_dir, results_dir, features_path, batch_gen_tst, epoch, actions_dict, sample_rate):
+    def predict(self, model_dir, results_dir, features_path, batch_gen_tst, actions_dict, sample_rate):
         self.model.eval()
         with torch.no_grad():
+            correct = 0
+            total = 0
             self.model.to(device)
-            self.model.load_state_dict(torch.load(model_dir + "/epoch-" + str(epoch) + ".model"))
+            self.model.load_state_dict(torch.load(model_dir + "/model.pkl"))
 
             batch_gen_tst.reset()
             import time
             time_start = time.time()
             while batch_gen_tst.has_next():
                 batch_input, batch_target, mask, vids = batch_gen_tst.next_batch(1)
+                batch_input, batch_target, mask = batch_input.to(device), batch_target.to(device), mask.to(device)
                 vid = vids[0]
 #                 print(vid)
-                features = np.load(features_path + vid.split('.')[0] + '.npy')
+                features = np.load(os.path.join(features_path, vid.split('.')[0] + '.npy'))
                 features = features[:, ::sample_rate]
 
                 input_x = torch.tensor(features, dtype=torch.float)
                 input_x.unsqueeze_(0)
                 input_x = input_x.to(device)
                 predictions = self.model(input_x, torch.ones(input_x.size(), device=device))
+                _, predicted = torch.max(predictions.data[-1], 1)
+                correct += ((predicted == batch_target).float() * mask[:, 0, :].squeeze(1)).sum().item()
+                total += torch.sum(mask[:, 0, :]).item()
 
                 for i in range(len(predictions)):
                     confidence, predicted = torch.max(F.softmax(predictions[i], dim=1).data, 1)
@@ -430,11 +444,17 @@ class Trainer:
                     recognition = np.concatenate((recognition, [list(actions_dict.keys())[
                                                                     list(actions_dict.values()).index(
                                                                         predicted[i].item())]] * sample_rate))
+                
                 f_name = vid.split('/')[-1].split('.')[0]
                 f_ptr = open(results_dir + "/" + f_name, "w")
                 f_ptr.write("### Frame level recognition: ###\n")
                 f_ptr.write(' '.join(recognition))
                 f_ptr.close()
+            acc = float(correct) / total
+            f_name = vid.split('/')[-1].split('.')[0] + '_accuracy'
+            f_ptr = open(results_dir + "/" + f_name, "w")
+            f_ptr.write(f"{acc}")
+            f_ptr.close()
             time_end = time.time()
             
             
