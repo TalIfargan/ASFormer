@@ -6,6 +6,7 @@ import os
 import copy
 import numpy as np
 import math
+import wandb
 
 from eval import segment_bars_with_confidence
 
@@ -328,7 +329,11 @@ class Trainer:
         self.mse = nn.MSELoss(reduction='none')
         self.num_classes = num_classes
 
-    def train(self, save_dir, batch_gen, num_epochs, batch_size, learning_rate, batch_gen_tst=None):
+    def train(self, save_dir, batch_gen, num_epochs, batch_size, learning_rate, batch_gen_tst=None, split=None):
+        WANDB_START_METHOD = "thread"
+        wandb.init(project="CVSA_FINAL", entity="tandl", name="ASFORMER_SPLIT_"+split, save_code=True)
+        
+        
         self.model.train()
         self.model.to(device)
         optimizer = optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=1e-5)
@@ -362,8 +367,11 @@ class Trainer:
                 optimizer.step()
 
                 _, predicted = torch.max(ps.data[-1], 1)
-                correct += ((predicted == batch_target).float() * mask[:, 0, :].squeeze(1)).sum().item()
-                total += torch.sum(mask[:, 0, :]).item()
+                correct_batch = ((predicted == batch_target).float() * mask[:, 0, :].squeeze(1)).sum().item()
+                total_batch = torch.sum(mask[:, 0, :]).item()
+                correct += correct_batch
+                total += total_batch
+                wandb.log({"train_loss": loss.item(), "train_accuracy": float(correct_batch) / total_batch})
                 print(f"finished example No. {example_index} of epoch {epoch+1}")
                 
             
@@ -373,12 +381,19 @@ class Trainer:
             print("[epoch %d]: epoch loss = %f,   acc = %f" % (epoch + 1, epoch_loss / len(batch_gen.list_of_examples),
                                                                float(correct) / total))
 
-            if (epoch + 1) % 5 == 0 and batch_gen_tst is not None:
-                val_acc = self.test(batch_gen_tst, epoch)
-                if val_acc > best_acc:
-                    best_acc = val_acc
-                    torch.save(self.model.state_dict(), save_dir + "/model.pkl")
-                    torch.save(optimizer.state_dict(), save_dir + "/optimizer.pkl")
+            # if (epoch + 1) % 5 == 0 and batch_gen_tst is not None:
+            val_acc, val_loss = self.test(batch_gen_tst, epoch)
+            if val_acc > best_acc:
+                best_acc = val_acc
+                torch.save(self.model.state_dict(), save_dir + "/model.pkl")
+                torch.save(optimizer.state_dict(), save_dir + "/optimizer.pkl")
+            
+            wandb.log({"Training Loss": epoch_loss / len(batch_gen.list_of_examples), 
+                       "Training Accur.": float(correct) / total, 
+                       "Valid. Loss": val_loss, 
+                       "Valid. Accur.": val_acc})
+
+
 
     def test(self, batch_gen_tst, epoch):
         self.model.eval()
@@ -386,6 +401,7 @@ class Trainer:
         total = 0
         if_warp = False  # When testing, always false
         with torch.no_grad():
+            total_loss = 0
             while batch_gen_tst.has_next():
                 batch_input, batch_target, mask, vids = batch_gen_tst.next_batch(1, if_warp)
                 batch_input, batch_target, mask = batch_input.to(device), batch_target.to(device), mask.to(device)
@@ -393,13 +409,21 @@ class Trainer:
                 _, predicted = torch.max(p.data[-1], 1)
                 correct += ((predicted == batch_target).float() * mask[:, 0, :].squeeze(1)).sum().item()
                 total += torch.sum(mask[:, 0, :]).item()
+                loss = 0
+                for pp in p:
+                    loss += self.ce(pp.transpose(2, 1).contiguous().view(-1, self.num_classes), batch_target.view(-1))
+                    loss += 0.15 * torch.mean(torch.clamp(
+                        self.mse(F.log_softmax(pp[:, :, 1:], dim=1), F.log_softmax(pp.detach()[:, :, :-1], dim=1)), min=0,
+                        max=16) * mask[:, :, 1:])
+                total_loss += loss.item()
 
+        loss_final = total_loss / len(batch_gen_tst.list_of_examples)
         acc = float(correct) / total
         print("---[epoch %d]---: tst acc = %f" % (epoch + 1, acc))
 
         self.model.train()
         batch_gen_tst.reset()
-        return acc
+        return acc, loss_final
 
     def predict(self, model_dir, results_dir, features_path, batch_gen_tst, actions_dict, sample_rate):
         self.model.eval()
@@ -451,7 +475,7 @@ class Trainer:
                 f_ptr.write(' '.join(recognition))
                 f_ptr.close()
             acc = float(correct) / total
-            f_name = vid.split('/')[-1].split('.')[0] + '_accuracy'
+            f_name = 'accuracy'
             f_ptr = open(results_dir + "/" + f_name, "w")
             f_ptr.write(f"{acc}")
             f_ptr.close()

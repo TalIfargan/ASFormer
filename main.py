@@ -8,6 +8,7 @@ import os
 import argparse
 import numpy as np
 import random
+import wandb
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -20,13 +21,14 @@ torch.backends.cudnn.deterministic = True
 parser = argparse.ArgumentParser()
 parser.add_argument('--action', default='train')
 parser.add_argument('--dataset', default="50salads")
-parser.add_argument('--split', default='1')
+parser.add_argument('--split', default='0')
 parser.add_argument('--model_dir', default='models')
 parser.add_argument('--result_dir', default='results')
 
 args = parser.parse_args()
- 
-num_epochs = 20
+
+
+num_epochs = 15
 
 lr = 0.0005
 num_layers = 10
@@ -51,9 +53,9 @@ sample_rate = 1
 # if args.dataset == 'breakfast':
 #     lr = 0.0001
 
+features_path = f'/datashare/APAS/features/fold{args.split}/'
+train_list, val_list, test_list = get_train_val_lists(args.split, os.path.join('data', 'folds'), features_path)
 
-train_list, val_list, test_list = get_train_val_lists(args.split, os.path.join('data', 'folds'))
-features_path = os.path.join('data', 'features')
 gt_path = os.path.join('data', 'transcriptions_gestures')
  
 mapping_file = os.path.join('data', 'mapping_gestures.txt')
@@ -88,7 +90,7 @@ if args.action == "train":
     batch_gen_val = BatchGenerator(num_classes, actions_dict, gt_path, features_path, sample_rate)
     batch_gen_val.read_data(val_list)
 
-    trainer.train(model_dir, batch_gen, num_epochs, bz, lr, batch_gen_val)
+    trainer.train(model_dir, batch_gen, num_epochs, bz, lr, batch_gen_val, args.split)
 
 if args.action == "predict":
     batch_gen_test = BatchGenerator(num_classes, actions_dict, gt_path, features_path, sample_rate)

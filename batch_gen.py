@@ -33,8 +33,8 @@ class BatchGenerator(object):
         # self.list_of_examples = file_ptr.read().split('\n')[:-1]
         # file_ptr.close()
         self.list_of_examples = vid_list
-        self.gts = [os.path.join(self.gt_path, vid[:vid.index('.csv')]+'.txt') for vid in self.list_of_examples]
-        self.features = [os.path.join(self.features_path,  vid.split('.')[0] + '.npy') for vid in self.list_of_examples]
+        self.gts = [os.path.join(self.gt_path, vid+'.txt') for vid in self.list_of_examples]
+        self.features = [os.path.join(self.features_path,  vid+'.npy') for vid in self.list_of_examples]
         self.my_shuffle()
 
     def my_shuffle(self):
