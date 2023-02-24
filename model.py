@@ -303,27 +303,33 @@ class Decoder(nn.Module):
         return out, feature
     
 class MyTransformer(nn.Module):
-    def __init__(self, num_decoders, num_layers, r1, r2, num_f_maps, input_dim, num_classes, channel_masking_rate):
+    def __init__(self, num_decoders, num_layers, r1, r2, num_f_maps, input_dim, num_classes, channel_masking_rate, smooth=0):
         super(MyTransformer, self).__init__()
         self.encoder = Encoder(num_layers, r1, r2, num_f_maps, input_dim, num_classes, channel_masking_rate, att_type='sliding_att', alpha=1)
         self.decoders = nn.ModuleList([copy.deepcopy(Decoder(num_layers, r1, r2, num_f_maps, num_classes, num_classes, att_type='sliding_att', alpha=exponential_descrease(s))) for s in range(num_decoders)]) # num_decoders
-        
+        self.smooth = smooth
+        if smooth:
+            self.smoother = nn.Conv1d(num_classes, num_classes, smooth, padding='same', bias=False, padding_mode='replicate')
         
     def forward(self, x, mask):
         out, feature = self.encoder(x, mask)
         outputs = out.unsqueeze(0)
         
         for decoder in self.decoders:
-            out, feature = decoder(F.softmax(out, dim=1) * mask[:, 0:1, :], feature* mask[:, 0:1, :], mask)
+            if self.smooth:
+                out, feature = decoder(F.softmax(self.smoother(out), dim=1) * mask[:, 0:1, :], feature* mask[:, 0:1, :], mask)
+            else:
+                out, feature = decoder(F.softmax(out, dim=1) * mask[:, 0:1, :], feature* mask[:, 0:1, :], mask)
             outputs = torch.cat((outputs, out.unsqueeze(0)), dim=0)
  
         return outputs
 
     
 class Trainer:
-    def __init__(self, num_layers, r1, r2, num_f_maps, input_dim, num_classes, channel_masking_rate):
-        self.model = MyTransformer(3, num_layers, r1, r2, num_f_maps, input_dim, num_classes, channel_masking_rate)
+    def __init__(self, num_layers, r1, r2, num_f_maps, input_dim, num_classes, channel_masking_rate, smooth):
+        self.model = MyTransformer(3, num_layers, r1, r2, num_f_maps, input_dim, num_classes, channel_masking_rate, smooth)
         self.ce = nn.CrossEntropyLoss(ignore_index=-100)
+        self.smooth = smooth
 
         print('Model Size: ', sum(p.numel() for p in self.model.parameters()))
         self.mse = nn.MSELoss(reduction='none')
@@ -331,7 +337,7 @@ class Trainer:
 
     def train(self, save_dir, batch_gen, num_epochs, batch_size, learning_rate, batch_gen_tst=None, split=None):
         WANDB_START_METHOD = "thread"
-        wandb.init(project="CVSA_FINAL", entity="tandl", name="ASFORMER_SPLIT_"+split, save_code=True)
+        wandb.init(project="CVSA_FINAL", entity="tandl", name="ASFORMER_SPLIT_"+split+'_HIDDEN_1280', save_code=True)
         
         
         self.model.train()
@@ -449,6 +455,9 @@ class Trainer:
                 input_x = input_x.to(device)
                 predictions = self.model(input_x, torch.ones(input_x.size(), device=device))
                 _, predicted = torch.max(predictions.data[-1], 1)
+                print(vid)
+                if vid == 'P020_balloon2':
+                    predicted = predicted[:,:7406]
                 correct += ((predicted == batch_target).float() * mask[:, 0, :].squeeze(1)).sum().item()
                 total += torch.sum(mask[:, 0, :]).item()
 
