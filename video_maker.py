@@ -19,11 +19,12 @@ thickness = 2
 
 
 def add_segmentation(img, i, base, v2, num_frames, gt):
-    frame = cv2.imread(img)
+    #frame = cv2.imread(img)
+    frame= img
     width = frame.shape[1]
     height = frame.shape[0]
-    base = cv2.imread(base)
-    v2 = cv2.imread(v2)
+    # base = cv2.imread(base)
+    # v2 = cv2.imread(v2)
     left_size = 150
 
     patch_header = np.full((200, v2.shape[1], v2.shape[2]), 255, dtype=np.uint8)
@@ -60,12 +61,13 @@ def image_seq_to_segmentation_video(images_path, baseline_path, v2_path, gts, ou
     frames = sorted(os.listdir(images_path))
     num_frames = len(frames)
     for i, filename in enumerate(frames):
-        img = cv2.imread(filename)
+        print(f'frame {i} of video in {images_path}')
+        img = cv2.imread(os.path.join(images_path, filename))
         height, width, layers = img.shape
-        size = (width, height)
         image_with_segmentation = add_segmentation(img, i, base, v2, num_frames, gts[i])
         img_array.append(image_with_segmentation)
 
+    size = (img_array[0].shape[1], img_array[0].shape[0])
     print(size)
     print("writing video...")
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Be sure to use lower case

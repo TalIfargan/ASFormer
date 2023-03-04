@@ -2,7 +2,9 @@ import numpy as np
 import argparse
 import matplotlib.pyplot as plt
 import seaborn as sns
- 
+from utils import get_train_val_lists
+import os
+
 
 def read_file(path):
     with open(path, 'r') as f:
@@ -140,11 +142,14 @@ def segment_bars_with_confidence(save_path, confidence, *labels):
     plt.close()
  
  
-def func_eval(dataset, recog_path, file_list):
-    ground_truth_path = "./data/" + dataset + "/groundTruth/"
-    mapping_file = "./data/" + dataset + "/mapping.txt"
-    list_of_videos = read_file(file_list).split('\n')[:-1]
- 
+def func_eval(recog_path, test_list, split):
+    # ground_truth_path = "./data/" + dataset + "/groundTruth/"
+    ground_truth_path = 'data/transcriptions_gestures/'
+    # mapping_file = "./data/" + dataset + "/mapping.txt"
+    mapping_file = "data/mapping_gestures.txt"
+    # list_of_videos = read_file(file_list).split('\n')[:-1]
+    
+    list_of_videos = test_list
     file_ptr = open(mapping_file, 'r')
     actions = file_ptr.read().split('\n')[:-1]
     file_ptr.close()
@@ -163,15 +168,20 @@ def func_eval(dataset, recog_path, file_list):
     for vid in list_of_videos:
  
          
-        gt_file = ground_truth_path + vid
+        gt_file = ground_truth_path + vid +'.txt'
         gt_content = read_file(gt_file).split('\n')[0:-1]
- 
+        content = []
+        for item in gt_content:
+            splitted_item = item.split()
+            content += [splitted_item[2]]*(int(splitted_item[1]) - int(splitted_item[0]) + 1)
+        gt_content = content
         recog_file = recog_path + vid.split('.')[0]
         recog_content = read_file(recog_file).split('\n')[1].split()
  
 
-        for i in range(len(gt_content)):
+        for i in range(min(len(gt_content), len(recog_content))):
             total += 1
+            # if gt_content[i] == recog_content[i]:
             if gt_content[i] == recog_content[i]:
                 correct += 1
 
@@ -202,17 +212,17 @@ def func_eval(dataset, recog_path, file_list):
     return acc, edit, f1s
 
 def main():
-    cnt_split_dict = {
-        '50salads':5,
-        'gtea':4,
-        'breakfast':4
-    }
+    # cnt_split_dict = {
+    #     '50salads':5,
+    #     'gtea':4,
+    #     'breakfast':4
+    # }
     
     parser = argparse.ArgumentParser()
  
-    parser.add_argument('--dataset', default="gtea")
-    parser.add_argument('--split', default=1, type=int)
-    parser.add_argument('--result_dir', default='results')
+    # parser.add_argument('--dataset', default="gtea")
+    # parser.add_argument('--split', default=1, type=int)
+    parser.add_argument('--result_dir', default='results_v2_hidden_64')
     
     args = parser.parse_args()
 
@@ -220,26 +230,58 @@ def main():
     edit_all = 0.
     f1s_all = [0.,0.,0.]
     
-    if args.split == 0:
-        for split in range(1, cnt_split_dict[args.dataset] + 1):
-            recog_path = "./{}/".format(args.result_dir)+args.dataset+"/split_{}".format(split)+"/"
-            file_list = "./data/"+args.dataset+"/splits/test.split{}".format(split)+".bundle"
-            acc, edit, f1s = func_eval(args.dataset, recog_path, file_list)
+    if True:
+        acc_folds = []
+        f1_folds_10 = []
+        f1_folds_25 = []
+        f1_folds_50 = []
+        edit_folds = []
+        for split in range(5):
+            recog_path = "./{}".format(args.result_dir)+"/split_{}".format(split)+"/"
+            train_list, val_list, test_list = get_train_val_lists(split, os.path.join('data', 'folds'), 'new_features/hidden_64/fold0')
+            # file_list = "./data/"+args.dataset+"/splits/test.split{}".format(split)+".bundle"
+            # acc, edit, f1s = func_eval(args.dataset, recog_path, file_list)
+            acc, edit, f1s = func_eval(recog_path, test_list, split)
+            acc_folds.append(acc)
+            edit_folds.append(edit)
+            f1_folds_10.append(f1s[0])
+            f1_folds_25.append(f1s[1])
+            f1_folds_50.append(f1s[2])
             acc_all += acc
             edit_all += edit
             f1s_all[0] += f1s[0]
             f1s_all[1] += f1s[1]
             f1s_all[2] += f1s[2]
         
-        acc_all /=  cnt_split_dict[args.dataset]
-        edit_all /= cnt_split_dict[args.dataset]
-        f1s_all = [i / cnt_split_dict[args.dataset] for i in f1s_all]
+        acc_all /=  5
+        edit_all /= 5
+        f1s_all = [i / 5 for i in f1s_all]
     else:
         split = args.split
         recog_path = "./{}/".format(args.result_dir)+args.dataset+"/split_{}".format(split)+"/"
         file_list = "./data/"+args.dataset+"/splits/test.split{}".format(split)+".bundle"
         acc_all, edit_all, f1s_all = func_eval(args.dataset, recog_path, file_list)
     
+    print("accuracy:")
+    print(acc_folds)
+    print("accuracy STD:")
+    print(np.std(acc_folds))
+    print("Edit:")
+    print(edit_folds)
+    print("Edit STD:")
+    print(np.std(edit_folds))
+    print("F1_10:")
+    print(f1_folds_10)
+    print("F1_10 STD:")
+    print(np.std(f1_folds_10))
+    print("F1_25:")
+    print(f1_folds_25)
+    print("F1_25 STD:")
+    print(np.std(f1_folds_25))
+    print("F1_50:")
+    print(f1_folds_50)
+    print("F1_50 STD:")
+    print(np.std(f1_folds_50))
     print("Acc: %.4f  Edit: %4f  F1@10,25,50 " % (acc_all, edit_all), f1s_all)
 
 

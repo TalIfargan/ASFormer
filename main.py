@@ -20,13 +20,14 @@ torch.backends.cudnn.deterministic = True
  
 parser = argparse.ArgumentParser()
 parser.add_argument('--action', default='train')
-parser.add_argument('--hidden', default='1280')
+parser.add_argument('--hidden', default='512')
 parser.add_argument('--dataset', default="50salads")
 parser.add_argument('--split', default='0')
-parser.add_argument('--model_dir', default='models_v2_hidden_1280')
+parser.add_argument('--model_dir', default='models_v2_hidden_')
 parser.add_argument('--results_dir', default='results_v2')
 parser.add_argument('--features_path', default='new_features')
 parser.add_argument('--smooth', type=int, default=0)
+
 
 args = parser.parse_args()
 
@@ -36,7 +37,7 @@ num_epochs = 6
 lr = 0.0005
 num_layers = 10
 num_f_maps = 64
-features_dim = 1280
+features_dim = int(args.hidden)
 bz = 1
 
 channel_mask_rate = 0.3
@@ -91,7 +92,7 @@ for k,v in actions_dict.items():
     index2label[v] = k
 num_classes = len(actions_dict)
 
-trainer = Trainer(num_layers, 2, 2, num_f_maps, features_dim, num_classes, channel_mask_rate, smooth=args.smooth)
+trainer = Trainer(num_layers, 2, 2, num_f_maps, features_dim, num_classes, channel_mask_rate, smooth=args.smooth, hidden=args.hidden)
 if args.action == "train":
     batch_gen = BatchGenerator(num_classes, actions_dict, gt_path, features_path, sample_rate)
     batch_gen.read_data(train_list)

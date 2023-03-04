@@ -326,10 +326,11 @@ class MyTransformer(nn.Module):
 
     
 class Trainer:
-    def __init__(self, num_layers, r1, r2, num_f_maps, input_dim, num_classes, channel_masking_rate, smooth):
+    def __init__(self, num_layers, r1, r2, num_f_maps, input_dim, num_classes, channel_masking_rate, smooth, hidden):
         self.model = MyTransformer(3, num_layers, r1, r2, num_f_maps, input_dim, num_classes, channel_masking_rate, smooth)
         self.ce = nn.CrossEntropyLoss(ignore_index=-100)
         self.smooth = smooth
+        self.hidden = hidden
 
         print('Model Size: ', sum(p.numel() for p in self.model.parameters()))
         self.mse = nn.MSELoss(reduction='none')
@@ -337,7 +338,7 @@ class Trainer:
 
     def train(self, save_dir, batch_gen, num_epochs, batch_size, learning_rate, batch_gen_tst=None, split=None):
         WANDB_START_METHOD = "thread"
-        wandb.init(project="CVSA_FINAL", entity="tandl", name="ASFORMER_SPLIT_"+split+'_HIDDEN_1280', save_code=True)
+        wandb.init(project="CVSA_FINAL", entity="tandl", name="ASFORMER_SPLIT_"+split+f'_HIDDEN_{self.hidden}', save_code=True)
         
         
         self.model.train()
