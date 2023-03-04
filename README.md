@@ -13,4 +13,4 @@ Also, this repo contains all code needed for running the experiments described i
 ## Results
 In addition to the results extensively described in our work, this repo contatins all the outputs of our experiments.
 
-In any results directory, the results for the relevant test-set is provided. the results for each video contain its raw gesture-recognition output, and 3 segmentation images describing the outputs of the ASFormer (the third one is the one taken as the model's output). In any segmentation image we can a graph of the model's certainty along the frames.
+In any results directory, the results for the relevant test-set is provided. the results for each video contain its raw gesture-recognition output, and 3 segmentation images describing the outputs of the ASFormer (the third one is the one taken as the model's output). In any segmentation image we can also see a graph of the model's certainty along the frames.
