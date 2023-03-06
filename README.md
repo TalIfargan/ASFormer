@@ -28,7 +28,7 @@ Then, use the command `python train_efficient.py --FOLD {fold_num}`, where `fold
 `python pca_maker.py --output_size {size} --split {split_num}`, where `size` is the desired features dimension and `split_num` is the fold number.
 
 ### Fourth step: ASFormer Training
-`python main.py --split {split_num} --hidden {hidden_dim}`, where split_num is the fold number and hidden_dim is the hidden desired feature-space size to use.
+`python main.py --split {split_num} --hidden {hidden_dim}`, where split_num is the fold number and hidden_dim is the desired feature-space size to use.
 
 ### Fifth step: ASFormer Evaluation
 `python main.py --split {split_num} --hidden {hidden_dim} --action predict`
