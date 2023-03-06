@@ -1,6 +1,8 @@
 # ASFormer Experiments
 This repo is based on the github repo from the BMVC 2021 paper: [ASFormer: Transformer for Action Segmentation](https://arxiv.org/pdf/2110.08568.pdf).
 
+Output videos can be downloaded from: https://drive.google.com/drive/folders/1S_tcUdrOZF3vKk1Ow9YVfAd2Jv9wyxcD?usp=sharing 
+
 ## Main Components
 `main.py` - for running an experiment.
 
