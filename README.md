@@ -17,7 +17,9 @@ In any results directory, the results for the relevant test-set is provided. the
 
 ## Reproduction
 ### First Step: Training EfficientNet With Transition Classes
-`python train_efficient.py --FOLD {fold_num}`, where `fold_num` can be from 0 to 5.
+First, run `data_modifier.py` in order to save the new defined labels for the feature extractor.
+
+Then, use the command `python train_efficient.py --FOLD {fold_num}`, where `fold_num` can be from 0 to 5.
 
 ### Second Step: Feature Making - Saving the Inference of Efficientnet
 `python feature_maker.py`
