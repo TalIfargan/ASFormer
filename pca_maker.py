@@ -28,14 +28,12 @@ def make_pca(videos, output_size, fold_num):
 #             continue 
 
 
-# parser = argparse.ArgumentParser()
-# parser.add_argument('--output_size', default='64')
-# parser.add_argument('--split', default='4')
-# args = parser.parse_args()
-# output_size = int(args.output_size)
-# split = args.split
-output_size = 1280
-split = 0
+parser = argparse.ArgumentParser()
+parser.add_argument('--output_size', default='64')
+parser.add_argument('--split', default='4')
+args = parser.parse_args()
+output_size = int(args.output_size)
+split = args.split
 
 
 print(f"starts split {split} in size {output_size}")

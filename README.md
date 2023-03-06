@@ -14,3 +14,22 @@ Also, this repo contains all code needed for running the experiments described i
 In addition to the results extensively described in our work, this repo contatins all the outputs of our experiments.
 
 In any results directory, the results for the relevant test-set is provided. the results for each video contain its raw gesture-recognition output, and 3 segmentation images describing the outputs of the ASFormer (the third one is the one taken as the model's output). In any segmentation image we can also see a graph of the model's certainty along the frames.
+
+## Reproduction
+### First Step: Training EfficientNet With Transition Classes
+`python train_efficient.py --FOLD {fold_num}`, where `fold_num` can be from 0 to 5.
+
+### Second Step: Feature Making - Saving the Inference of Efficientnet
+`python feature_maker.py`
+
+### Third step: Dimension Reduction
+`python pca_maker.py --output_size size --split split_num`, where `size` is the desired features dimension and `split_num` is the fold number.
+
+### Fourth step: ASFormer Training
+`python main.py --split split_num --hidden hidden_dim`, where split_num is the fold number and hidden_dim is the hidden desired feature-space size to use.
+
+### Fifth step: ASFormer Evaluation
+`python main.py --split split_num --hidden hidden_dim --action predict`
+
+### Extra Step: Video Making
+`python video_maker.py`, will run on 3 previously picked videos based on the extracted results.
