@@ -1,7 +1,8 @@
-# ASFormer Experiments
-This repo is based on the github repo from the BMVC 2021 paper: [ASFormer: Transformer for Action Segmentation](https://arxiv.org/pdf/2110.08568.pdf).
+# Action Segmentation for Surgical Data
+Please see project description, goals, methods and results in the final report [Report](Project_report.pdf)
 
-Output videos can be downloaded from: https://drive.google.com/drive/folders/1S_tcUdrOZF3vKk1Ow9YVfAd2Jv9wyxcD?usp=sharing 
+NOTE:
+This repo is based on the github repo from the BMVC 2021 paper: [ASFormer: Transformer for Action Segmentation](https://arxiv.org/pdf/2110.08568.pdf).
 
 ## Main Components
 `main.py` - for running an experiment.
@@ -13,6 +14,7 @@ Output videos can be downloaded from: https://drive.google.com/drive/folders/1S_
 Also, this repo contains all code needed for running the experiments described in our work, such as a new label defenition for the  "transition classes", dimension reduction for the input features and more.
 
 ## Results
+Output videos can be downloaded from: https://drive.google.com/drive/folders/1S_tcUdrOZF3vKk1Ow9YVfAd2Jv9wyxcD?usp=sharing 
 In addition to the results extensively described in our work, this repo contatins all the outputs of our experiments.
 
 In any results directory, the results for the relevant test-set is provided. the results for each video contain its raw gesture-recognition output, and 3 segmentation images describing the outputs of the ASFormer (the third one is the one taken as the model's output). In any segmentation image we can also see a graph of the model's certainty along the frames.
